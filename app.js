@@ -7,6 +7,12 @@ const port = 3000;
 
 app.use(express.json());
 
+app.use((req, res, next) => {
+  //console.log("This is a middleware");
+  console.log(req.url, req.method);
+  next();
+});
+
 app.get("/users", async (req, res) => {
   try {
     const users = await prisma.user.findMany();
