@@ -1,5 +1,6 @@
 const express = require("express");
 const { PrismaClient } = require("@prisma/client");
+const Joi = require("joi");
 
 const prisma = new PrismaClient();
 const app = express();
@@ -11,6 +12,11 @@ app.use((req, res, next) => {
   //console.log("This is a middleware");
   console.log(req.url, req.method);
   next();
+});
+
+const userSchema = Joi.object({
+  name: Joi.string().min(3).max(30).required(),
+  email: Joi.string().email().required(),
 });
 
 app.get("/users", async (req, res) => {
@@ -41,7 +47,12 @@ app.get("/users/:id", async (req, res) => {
 });
 
 app.post("/users", async (req, res) => {
-  const { name, email } = req.body;
+  const userData = req.body;
+  const { value, error } = userSchema.validate(userData);
+  if (error) {
+    return res.status(400).json(`Error: ${error.message}`);
+  }
+  const { name, email } = value;
 
   try {
     const user = await prisma.user.create({
