@@ -19,6 +19,10 @@ const userSchema = Joi.object({
   email: Joi.string().email().required(),
 });
 
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
+
 app.get("/users", async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 3;
