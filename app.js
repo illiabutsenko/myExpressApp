@@ -23,6 +23,10 @@ app.get('/health', (req, res) => {
   res.status(200).send('OK');
 });
 
+app.get('/status', (req, res) => {
+  res.status(200).send('СЕРВЕР ПРАЦЮЄ');
+});
+
 app.get("/users", async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 3;
