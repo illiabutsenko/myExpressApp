@@ -2,6 +2,7 @@ const express = require("express");
 const { PrismaClient } = require("@prisma/client");
 const Joi = require("joi");
 const bcrypt = require("bcrypt");
+const session = require("express-session");
 
 const prisma = new PrismaClient();
 const app = express();
@@ -14,6 +15,12 @@ app.use((req, res, next) => {
   console.log(req.url, req.method);
   next();
 });
+
+app.use(session({
+  secret: "your_secretkey_here",
+  resave: false,
+  saveUninitialized: true,
+}));
 
 const userSchema = Joi.object({
   name: Joi.string().min(3).max(30).required(),
@@ -118,9 +125,22 @@ app.post("/login", async (req, res) => {
     if(!isValid) {
       return res.status(401).send("Invalid password");
     }
-    res.status(200).send("Login successful")
+
+    req.session.username = user.name;
+    req.session.userId = user.id;
+    
+    res.status(200).send("Login successful");
+    
   } catch (err) {
     res.status(500).send("Login error");
+  }
+});
+
+app.get("/profile", async(req, res) => {
+  if (req.session.username) {
+    res.send(`Hi, ${req.session.username}!`)
+  } else {
+    res.send("Please Log in");
   }
 });
 
