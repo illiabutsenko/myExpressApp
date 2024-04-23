@@ -2,11 +2,13 @@ const express = require("express");
 const { PrismaClient } = require("@prisma/client");
 const Joi = require("joi");
 const bcrypt = require("bcrypt");
-const session = require("express-session");
+const {authenticateToken, generateToken} = require("./security");
 
 const prisma = new PrismaClient();
 const app = express();
 const port = 3000;
+
+
 
 app.use(express.json());
 
@@ -15,12 +17,6 @@ app.use((req, res, next) => {
   console.log(req.url, req.method);
   next();
 });
-
-app.use(session({
-  secret: "your_secretkey_here",
-  resave: false,
-  saveUninitialized: true,
-}));
 
 const userSchema = Joi.object({
   name: Joi.string().min(3).max(30).required(),
@@ -35,9 +31,9 @@ app.get('/status', (req, res) => {
   res.status(200).send('СЕРВЕР ПРАЦЮЄ');
 });
 
-app.get("/users", async (req, res) => {
+app.get("/users", authenticateToken, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 3;
+  const limit = parseInt(req.query.limit) || 30;
   const startIndex = (page - 1) * limit;
   const endIndex = page * limit;
 
@@ -50,7 +46,7 @@ app.get("/users", async (req, res) => {
   }
 });
 
-app.get("/users/:id", async (req, res) => {
+app.get("/users/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
   try {
       const user = await prisma.user.findUnique({
@@ -67,24 +63,6 @@ app.get("/users/:id", async (req, res) => {
     res.status(400).json({ error: err.message });
   }
 });
-
-// app.post("/users", async (req, res) => {
-//   const userData = req.body;
-//   const { value, error } = userSchema.validate(userData);
-//   if (error) {
-//     return res.status(400).json(`Error: ${error.message}`);
-//   }
-//   const { name, email } = value;
-
-//   try {
-//     const user = await prisma.user.create({
-//       data: { name, email },
-//     });
-//     res.status(201).json(user);
-//   } catch (err) {
-//     res.status(400).json({ error: err.message });
-//   }
-// });
 
 app.post("/register", async (req, res) => {
   const { name, password, email } = req.body;
@@ -126,25 +104,31 @@ app.post("/login", async (req, res) => {
       return res.status(401).send("Invalid password");
     }
 
-    req.session.username = user.name;
-    req.session.userId = user.id;
+    token = generateToken(user);
     
-    res.status(200).send("Login successful");
+    res.status(200).send({message: "Login successful", token: token});
     
   } catch (err) {
     res.status(500).send("Login error");
   }
 });
 
-app.get("/profile", async(req, res) => {
-  if (req.session.username) {
-    res.send(`Hi, ${req.session.username}!`)
+app.get("/profile", authenticateToken, async(req, res) => {
+  if (req.user) {
+    res.send(`Hi, ${req.user.username}!`)
   } else {
     res.send("Please Log in");
   }
 });
 
-app.put("/users/:id", async (req, res) => {
+app.get("/", (req, res) => {
+  res.send('<form action="/login" method="post">' +
+'Username: <input name="user"><br>' +
+'Password: <input name"pass" type="password"><br>' +
+'<input type="submit" text="Login"></form>');
+});
+
+app.put("/users/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
   const { name, email } = req.body;
   
@@ -161,7 +145,7 @@ app.put("/users/:id", async (req, res) => {
   }
 });
 
-app.delete("/users/:id", async (req, res) => {
+app.delete("/users/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
   try {
     await prisma.user.delete({
